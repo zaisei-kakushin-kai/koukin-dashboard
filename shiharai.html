@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>公金支出情報</title>
+  <title>行政支払情報ビューア</title>
   <style>
     :root {
       --p1: #4f46e5;
@@ -766,7 +766,7 @@
     const addIdx = (map, key, i) => { if (!key) return; if (!map.has(key)) map.set(key, []); map.get(key).push(i); };
 
     // ── FETCH Parquet ──
-    import { parquetRead, asyncBufferFromUrl } from 'https://cdn.jsdelivr.net/npm/hyparquet/+esm';
+    import { parquetRead, parquetMetadata, asyncBufferFromUrl } from 'https://cdn.jsdelivr.net/npm/hyparquet/+esm';
 
     async function boot() {
       all = []; idxKyoku = new Map(); idxKan = new Map(); idxSct = new Map();
@@ -774,38 +774,45 @@
       pw.style.display = 'block';
       document.getElementById('progressMsg').textContent = '読み込み中…';
 
-      const asyncBuffer = await asyncBufferFromUrl({ url: 'aggr.parquet' });
+      async function loadParquet(url) {
+        const res = await fetch(url)
+        const arrayBuffer = await res.arrayBuffer()
+        const metadata = parquetMetadata(arrayBuffer)
+        const columns = metadata.schema.slice(1).map(s => s.name)
+        let records = []
+        await parquetRead({
+          file: arrayBuffer,
+          onComplete: (rows) => {
+            records = rows.map(row =>
+              Object.fromEntries(columns.map((col, i) => [col, row[i]]))
+            )
+          },
+        })
 
-      await parquetRead({
-        file: asyncBuffer,
-        onComplete: rows => {
-          rows.forEach(r => {
-            if (all.length == 0) {
-              console.log(r)
+        records.forEach((record, idx) => {
+          record._hay = Object.values(record)
+            .filter(Boolean).join(' ').toLowerCase();
+          addIdx(idxKyoku, record['局名'], idx);
+          addIdx(idxKan, record['款名'], idx);
+          addIdx(idxSct, record['節'], idx);
+
+          for (const key in record) {
+            if (!Object.hasOwn(record, key)) continue;
+            const element = record[key];
+            if (key === '支払日') {
+              const d = record[key]
+              record[key] = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDay()}`
+            } else if (typeof record[key] === 'bigint') {
+              record[key] = parseInt(record[key])
+            } else {
+              record[key] = record[key]
             }
-            const idx = all.length;
-            const keys = ["局名", "部名", "課名", "支払日", "会計名", "款名", "項名", "目名", "節・細節名", "支払内容（件名）", "支払額（円）", "節", "細節"]
-            const record = {}
-            for (let i = 0; i < keys.length; i++) {
-              const key = keys[i];
-              if (key === '支払日') {
-                const d = new Date()
-                record[key] = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDay()}`
-              } else if (typeof r[i] === 'bigint') {
-                record[key] = parseInt(r[i])
-              } else {
-                record[key] = r[i]
-              }
-            }
-            record._hay = r
-              .filter(Boolean).join(' ').toLowerCase();
-            addIdx(idxKyoku, record['局名'], idx);
-            addIdx(idxKan, record['款名'], idx);
-            addIdx(idxSct, record['節'], idx);
-            all.push(record);
-          });
-        },
-      });
+          }
+        })
+
+        return records
+      }
+      all = await loadParquet('aggr.parquet')
 
       if (!all.length) { alert('データが見つかりませんでした'); pw.style.display = 'none'; return; }
 
