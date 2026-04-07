@@ -790,7 +790,7 @@
               const key = keys[i];
               if (key === '支払日') {
                 const d = new Date()
-                record[key] = `${d.getFullYear()}-${d.getMonth()}-${d.getDay()}`
+                record[key] = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDay()}`
               } else if (typeof r[i] === 'bigint') {
                 record[key] = parseInt(r[i])
               } else {
