@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行政支払情報ビューア</title>
+  <style>
+    :root {
+      --p1: #4f46e5;
+      --p2: #6366f1;
+      --p3: #e0e7ff;
+      --bg: #f5f5f8;
+      --surface: #fff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --r: 10px;
+      --red: #ef4444;
+      --green: #22c55e;
+      --amber: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--p1);
+      color: #fff;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    #hdrSub {
+      font-size: 12px;
+      opacity: .7;
+    }
+
+    #progressWrap {
+      flex: 1;
+      min-width: 180px;
+      display: none;
+    }
+
+    #progressMsg {
+      font-size: 11px;
+      opacity: .85;
+      margin-bottom: 3px;
+    }
+
+    #progressBar {
+      height: 4px;
+      background: rgba(255, 255, 255, .3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    #progressFill {
+      height: 100%;
+      background: #fff;
+      width: 0%;
+      transition: width .15s;
+    }
+
+    /* ── Load ── */
+    .load-area {
+      padding: 32px 20px;
+      text-align: center;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      padding: 40px 20px;
+      background: var(--surface);
+      max-width: 600px;
+      margin: 0 auto;
+      cursor: pointer;
+      transition: border-color .2s;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag {
+      border-color: var(--p1);
+      background: var(--p3);
+    }
+
+    .drop-zone p {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .drop-zone input {
+      display: none;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 6px 13px;
+      background: var(--p1);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn:hover {
+      background: var(--p2);
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg);
+    }
+
+    /* ── Summary bar ── */
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .scard {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 13px;
+      flex: 1;
+      min-width: 110px;
+    }
+
+    .slbl {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .sval {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--p1);
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 7px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+
+    .filter-bar input[type=text] {
+      flex: 1;
+      min-width: 150px;
+      padding: 5px 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .filter-bar input[type=date] {
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .filter-bar select {
+      padding: 5px 7px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      background: #fff;
+    }
+
+    .filter-bar label {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .filter-bar .sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    #countBadge {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      padding: 0 14px;
+      background: var(--surface);
+    }
+
+    .tab {
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      color: var(--muted);
+      transition: color .15s, border-color .15s;
+    }
+
+    .tab.active {
+      color: var(--p1);
+      border-bottom-color: var(--p1);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ── Overview ── */
+    .ov-kpi {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 14px;
+    }
+
+    .kcard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 16px;
+      flex: 1;
+      min-width: 130px;
+    }
+
+    .klbl {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .kval {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--p1);
+      margin-top: 2px;
+    }
+
+    .ov-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 0 14px 14px;
+    }
+
+    .ov-chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px;
+    }
+
+    .ov-chart-box h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .ov-chart-full {
+      grid-column: 1/-1;
+    }
+
+    @media(max-width:680px) {
+      .ov-charts {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Virtual scroll table ── */
+    .tbl-wrap {
+      padding: 0 14px 24px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--r);
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    }
+
+    thead th {
+      background: var(--p1);
+      color: #fff;
+      padding: 9px 10px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    thead th:hover {
+      background: var(--p2);
+    }
+
+    thead th.asc::after {
+      content: ' ↑';
+    }
+
+    thead th.desc::after {
+      content: ' ↓';
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: #f0f4ff;
+    }
+
+    tbody td {
+      padding: 8px 10px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+
+    td.money {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--p1);
+    }
+
+    td.date {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    td.trunc {
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pager {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px;
+      color: var(--muted);
+    }
+
+    /* ── Pills ── */
+    .pill {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .pill-kan {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .pill-sct {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    /* ── Treemap ── */
+    .tm-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 9px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+
+    .tm-toolbar label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .tm-toolbar select {
+      padding: 5px 7px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    #tmWrap {
+      padding: 14px;
+    }
+
+    #tmCanvas {
+      width: 100%;
+      height: calc(100vh - 240px);
+      min-height: 480px;
+      display: block;
+      border-radius: var(--r);
+      cursor: pointer;
+    }
+
+    #tmTooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(17, 24, 39, .92);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      display: none;
+      z-index: 200;
+      max-width: 280px;
+    }
+
+    /* ── Drawer ── */
+    .drawer-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .35);
+      z-index: 100;
+    }
+
+    .drawer-bg.open {
+      display: block;
+    }
+
+    .drawer {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: min(460px, 100vw);
+      background: var(--surface);
+      overflow-y: auto;
+      box-shadow: -4px 0 20px rgba(0, 0, 0, .12);
+      padding: 22px;
+      z-index: 101;
+      transform: translateX(100%);
+      transition: transform .25s;
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer h2 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .drw-close {
+      float: right;
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .drw-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .drw-lbl {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 120px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .drw-val {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .drw-money {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--p1);
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </svg>
+    <h1>行政支払情報ビューア</h1>
+    <span id="hdrSub"></span>
+    <div id="progressWrap">
+      <div id="progressMsg"></div>
+      <div id="progressBar">
+        <div id="progressFill"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Load area ── -->
+  <div id="loadArea" class="load-area">
+    <div style="max-width:400px;margin:0 auto;padding:48px 0;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5"
+        style="display:block;margin:0 auto">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <p style="font-size:15px;font-weight:600;color:var(--text);margin-top:14px">データを読み込んでいます</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px">しばらくお待ちください</p>
+    </div>
+    <input type="file" id="fi" accept=".ndjson,.jsonl,.json,.txt" style="display:none">
+    <div id="dropZone" style="display:none"></div>
+    <textarea id="pasteBox" style="display:none"></textarea>
+  </div>
+
+  <!-- ── App area ── -->
+  <div id="appArea" style="display:none">
+
+    <!-- Summary -->
+    <div class="summary">
+      <div class="scard">
+        <div class="slbl">件数（絞込）</div>
+        <div class="sval" id="sumCount">0</div>
+      </div>
+      <div class="scard">
+        <div class="slbl">支払総額（絞込）</div>
+        <div class="sval" id="sumTotal">0</div>
+      </div>
+      <div class="scard">
+        <div class="slbl">平均支払額</div>
+        <div class="sval" id="sumAvg">0</div>
+      </div>
+      <div class="scard">
+        <div class="slbl">局数（絞込）</div>
+        <div class="sval" id="sumKyoku">0</div>
+      </div>
+      <div class="scard">
+        <div class="slbl">全件数</div>
+        <div class="sval" id="sumAll">0</div>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+      <input type="text" id="search" placeholder="キーワード検索（局・課・件名など）">
+      <div class="sep"></div>
+      <label>局</label>
+      <select id="fKyoku">
+        <option value="">すべて</option>
+      </select>
+      <label>款</label>
+      <select id="fKan">
+        <option value="">すべて</option>
+      </select>
+      <label>節</label>
+      <select id="fSct">
+        <option value="">すべて</option>
+      </select>
+      <div class="sep"></div>
+      <label>支払日</label>
+      <input type="date" id="fDateFrom" title="開始日">
+      <span style="color:var(--muted);font-size:11px">〜</span>
+      <input type="date" id="fDateTo" title="終了日">
+      <div class="sep"></div>
+      <button class="btn btn-ghost btn-sm" onclick="resetFilters()">リセット</button>
+      <span id="countBadge"></span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab" id="tabOverview" onclick="switchTab('overview')">概要</div>
+      <div class="tab active" id="tabList" onclick="switchTab('list')">一覧</div>
+      <div class="tab" id="tabTreemap" onclick="switchTab('treemap')">ツリーマップ</div>
+    </div>
+
+    <!-- ── Overview panel ── -->
+    <div id="panelOverview" class="tab-panel">
+      <div class="ov-kpi">
+        <div class="kcard">
+          <div class="klbl">絞込件数</div>
+          <div class="kval" id="ovCount">0</div>
+        </div>
+        <div class="kcard">
+          <div class="klbl">支払総額</div>
+          <div class="kval" id="ovTotal">0</div>
+        </div>
+        <div class="kcard">
+          <div class="klbl">平均支払額</div>
+          <div class="kval" id="ovAvg">0</div>
+        </div>
+        <div class="kcard">
+          <div class="klbl">最高支払額</div>
+          <div class="kval" id="ovMax">0</div>
+        </div>
+      </div>
+      <div class="ov-charts">
+        <div class="ov-chart-box">
+          <h3>局別 支払額 Top10</h3>
+          <canvas id="chartKyoku"></canvas>
+        </div>
+        <div class="ov-chart-box">
+          <h3>節別 件数</h3>
+          <canvas id="chartSct"></canvas>
+        </div>
+        <div class="ov-chart-box ov-chart-full">
+          <h3>月別 支払推移</h3>
+          <canvas id="chartMonth"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── List panel (virtual scroll) ── -->
+    <div id="panelList" class="tab-panel active">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-key="支払日" onclick="sort('支払日')">支払日</th>
+              <th data-key="局名" onclick="sort('局名')">局名</th>
+              <th data-key="課名" onclick="sort('課名')">課名</th>
+              <th data-key="款名" onclick="sort('款名')">款</th>
+              <th data-key="節" onclick="sort('節')">節</th>
+              <th>支払内容</th>
+              <th data-key="支払額（円）" onclick="sort('支払額（円）')" style="text-align:right">支払額</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div id="emptyMsg" class="empty" style="display:none">該当する記録がありません</div>
+        <div id="pager" class="pager" style="display:none">
+          <button class="btn btn-ghost btn-sm" id="pgFirst" onclick="changePage('first')">«</button>
+          <button class="btn btn-ghost btn-sm" id="pgPrev" onclick="changePage('prev')">‹ 前へ</button>
+          <span id="pgInfo" style="font-size:12px;color:var(--muted)"></span>
+          <button class="btn btn-ghost btn-sm" id="pgNext" onclick="changePage('next')">次へ ›</button>
+          <button class="btn btn-ghost btn-sm" id="pgLast" onclick="changePage('last')">»</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Treemap panel ── -->
+    <div id="panelTreemap" class="tab-panel">
+      <div class="tm-toolbar">
+        <label>グループ</label>
+        <select id="tmGroup" onchange="renderTreemap()">
+          <option value="局名">局名</option>
+          <option value="款名">款名</option>
+          <option value="節">節</option>
+          <option value="細節">細節</option>
+          <option value="支払内容（件名）">支払内容</option>
+        </select>
+        <label style="margin-left:8px">サイズ</label>
+        <select id="tmSize" onchange="renderTreemap()">
+          <option value="amount">支払額</option>
+          <option value="count">件数</option>
+        </select>
+        <label style="margin-left:8px">対象データ</label>
+        <select id="tmScope" onchange="renderTreemap()">
+          <option value="filtered">絞り込み結果</option>
+          <option value="all">全件</option>
+        </select>
+      </div>
+      <div id="tmWrap"><canvas id="tmCanvas"></canvas></div>
+    </div>
+
+  </div><!-- /appArea -->
+
+  <div id="tmTooltip"></div>
+
+  <!-- Drawer -->
+  <div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+  <div class="drawer" id="drawer">
+    <button class="drw-close" onclick="closeDrawer()">×</button>
+    <h2 id="drwTitle">詳細</h2>
+    <div id="drwBody"></div>
+  </div>
+
+  <script type="module">
+    // ── STATE ──
+    let all = [], filtered = [];
+    let idxKyoku = new Map(), idxKan = new Map(), idxSct = new Map();
+    let sortKey = '支払日', sortAsc = false;
+    let searchTimer = null;
+    let page = 0;
+    const PAGE_SIZE = 200;
+    const CHUNK = 8000;
+
+    // ── UTILS ──
+    const fmtN = n => Number(n || 0).toLocaleString();
+    const fmtAmt = n => n >= 1e8 ? (n / 1e8).toFixed(1) + '億' : n >= 1e4 ? Math.round(n / 1e4).toLocaleString() + '万' : fmtN(n);
+    const sleep = () => new Promise(r => setTimeout(r, 0));
+    const addIdx = (map, key, i) => { if (!key) return; if (!map.has(key)) map.set(key, []); map.get(key).push(i); };
+
+    // ── FETCH Parquet ──
+    import { parquetRead, asyncBufferFromUrl } from 'https://cdn.jsdelivr.net/npm/hyparquet/+esm';
+
+    async function boot() {
+      all = []; idxKyoku = new Map(); idxKan = new Map(); idxSct = new Map();
+      const pw = document.getElementById('progressWrap');
+      pw.style.display = 'block';
+      document.getElementById('progressMsg').textContent = '読み込み中…';
+
+      const asyncBuffer = await asyncBufferFromUrl({ url: 'aggr.parquet' });
+
+      await parquetRead({
+        file: asyncBuffer,
+        onComplete: rows => {
+          rows.forEach(r => {
+            if (all.length == 0) {
+              console.log(r)
+            }
+            const idx = all.length;
+            const keys = ["局名", "部名", "課名", "支払日", "会計名", "款名", "項名", "目名", "節・細節名", "支払内容（件名）", "支払額（円）", "節", "細節"]
+            const record = {}
+            for (let i = 0; i < keys.length; i++) {
+              const key = keys[i];
+              if (key === '支払日') {
+                const d = new Date()
+                record[key] = `${d.getFullYear()}-${d.getMonth()}-${d.getDay()}`
+              } else if (typeof r[i] === 'bigint') {
+                record[key] = parseInt(r[i])
+              } else {
+                record[key] = r[i]
+              }
+            }
+            record._hay = r
+              .filter(Boolean).join(' ').toLowerCase();
+            addIdx(idxKyoku, record['局名'], idx);
+            addIdx(idxKan, record['款名'], idx);
+            addIdx(idxSct, record['節'], idx);
+            all.push(record);
+          });
+        },
+      });
+
+      if (!all.length) { alert('データが見つかりませんでした'); pw.style.display = 'none'; return; }
+
+      document.getElementById('progressMsg').textContent = 'ソート中…';
+      all.sort((a, b) => (b['支払日'] || '').localeCompare(a['支払日'] || ''));
+
+      pw.style.display = 'none';
+      document.getElementById('hdrSub').textContent = `全 ${all.length.toLocaleString()} 件`;
+      document.getElementById('sumAll').textContent = all.length.toLocaleString();
+      document.getElementById('loadArea').style.display = 'none';
+      document.getElementById('appArea').style.display = 'block';
+
+      buildFilters();
+      restoreParams();
+      apply();
+    }
+
+    boot().catch(err => {
+      console.error('Parquet読み込みエラー:', err);
+      document.getElementById('progressMsg').textContent = '読み込みに失敗しました';
+    });
+
+    // ── FILTERS ──
+    function buildFilters() {
+      populate('fKyoku', [...idxKyoku.keys()].sort());
+      populate('fKan', [...idxKan.keys()].sort());
+      populate('fSct', [...idxSct.keys()].sort());
+      ['fKyoku', 'fKan', 'fSct', 'fDateFrom', 'fDateTo'].forEach(id =>
+        document.getElementById(id).addEventListener('input', apply));
+      document.getElementById('search').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(apply, 250);
+      });
+    }
+    function populate(id, vals) {
+      const sel = document.getElementById(id);
+      const frag = document.createDocumentFragment();
+      vals.forEach(v => { const o = document.createElement('option'); o.value = o.textContent = v; frag.appendChild(o); });
+      sel.appendChild(frag);
+    }
+    function resetFilters() {
+      document.getElementById('search').value = '';
+      ['fKyoku', 'fKan', 'fSct', 'fDateFrom', 'fDateTo'].forEach(id => document.getElementById(id).value = '');
+      apply();
+    }
+
+    // ── URL PARAMS ──
+    function pushParams() {
+      const params = new URLSearchParams();
+      const q = document.getElementById('search').value.trim();
+      const ky = document.getElementById('fKyoku').value;
+      const kn = document.getElementById('fKan').value;
+      const sc = document.getElementById('fSct').value;
+      const df = document.getElementById('fDateFrom').value;
+      const dt = document.getElementById('fDateTo').value;
+      if (q) params.set('q', q);
+      if (ky) params.set('kyoku', ky);
+      if (kn) params.set('kan', kn);
+      if (sc) params.set('sct', sc);
+      if (df) params.set('from', df);
+      if (dt) params.set('to', dt);
+      const str = params.toString();
+      history.replaceState(null, '', str ? '?' + str : location.pathname);
+    }
+
+    function restoreParams() {
+      const params = new URLSearchParams(location.search);
+      if (params.get('q')) document.getElementById('search').value = params.get('q');
+      if (params.get('kyoku')) document.getElementById('fKyoku').value = params.get('kyoku');
+      if (params.get('kan')) document.getElementById('fKan').value = params.get('kan');
+      if (params.get('sct')) document.getElementById('fSct').value = params.get('sct');
+      if (params.get('from')) document.getElementById('fDateFrom').value = params.get('from');
+      if (params.get('to')) document.getElementById('fDateTo').value = params.get('to');
+    }
+
+    // ── APPLY (index-based) ──
+    function apply() {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const ky = document.getElementById('fKyoku').value;
+      const kn = document.getElementById('fKan').value;
+      const sc = document.getElementById('fSct').value;
+      const df = document.getElementById('fDateFrom').value;
+      const dt = document.getElementById('fDateTo').value;
+
+      // Use most selective index to get candidate pool
+      let pool;
+      if (ky && kn) {
+        const setA = new Set(idxKyoku.get(ky) || []);
+        pool = (idxKan.get(kn) || []).filter(i => setA.has(i)).map(i => all[i]);
+      } else if (ky) {
+        pool = (idxKyoku.get(ky) || []).map(i => all[i]);
+      } else if (kn) {
+        pool = (idxKan.get(kn) || []).map(i => all[i]);
+      } else if (sc) {
+        pool = (idxSct.get(sc) || []).map(i => all[i]);
+      } else {
+        pool = all;
+      }
+
+      filtered = pool.filter(r => {
+        if (ky && r['局名'] !== ky) return false;
+        if (kn && r['款名'] !== kn) return false;
+        if (sc && r['節'] !== sc) return false;
+        if (df && (r['支払日'] || '') < df) return false;
+        if (dt && (r['支払日'] || '') > dt) return false;
+        if (q && !r._hay.includes(q)) return false;
+        return true;
+      });
+
+      if (filtered.length <= 100000) doSort();
+
+      document.getElementById('countBadge').textContent = `${filtered.length.toLocaleString()} 件`;
+      updateSummary();
+      page = 0;
+      render();
+      pushParams();
+      if (document.getElementById('panelOverview').classList.contains('active')) renderOverview();
+    }
+
+    // ── SORT ──
+    function sort(key) {
+      if (sortKey === key) sortAsc = !sortAsc;
+      else { sortKey = key; sortAsc = key !== '支払額（円）'; }
+      updateSortHeaders();
+      if (filtered.length <= 100000) { doSort(); }
+      page = 0; render();
+    }
+    function doSort() {
+      filtered.sort((a, b) => {
+        const av = a[sortKey] ?? '', bv = b[sortKey] ?? '';
+        const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'ja');
+        return sortAsc ? cmp : -cmp;
+      });
+    }
+    function updateSortHeaders() {
+      document.querySelectorAll('thead th[data-key]').forEach(el => {
+        el.classList.remove('asc', 'desc');
+        if (el.dataset.key === sortKey) el.classList.add(sortAsc ? 'asc' : 'desc');
+      });
+    }
+
+    // ── SUMMARY ──
+    function updateSummary() {
+      const cnt = filtered.length;
+      let total = 0, max = 0;
+      filtered.forEach(r => {
+        const v = r['支払額（円）'] || 0;
+        total += v;
+        if (v > max) max = v;
+      });
+      const avg = cnt ? Math.round(total / cnt) : 0;
+      document.getElementById('sumCount').textContent = cnt.toLocaleString();
+      document.getElementById('sumTotal').textContent = total.toLocaleString();
+      document.getElementById('sumAvg').textContent = avg.toLocaleString();
+      document.getElementById('sumKyoku').textContent = new Set(filtered.map(r => r['局名'])).size;
+      document.getElementById('ovCount').textContent = cnt.toLocaleString();
+      document.getElementById('ovTotal').textContent = fmtAmt(total) + '円';
+      document.getElementById('ovAvg').textContent = fmtAmt(avg) + '円';
+      document.getElementById('ovMax').textContent = fmtAmt(max) + '円';
+    }
+
+    // ── VIRTUAL SCROLL ──
+    function render() {
+      const tbody = document.getElementById('tbody');
+      const empty = document.getElementById('emptyMsg');
+      const pager = document.getElementById('pager');
+      const total = filtered.length;
+
+      if (!total) { tbody.innerHTML = ''; empty.style.display = ''; pager.style.display = 'none'; return; }
+      empty.style.display = 'none';
+
+      const start = page * PAGE_SIZE;
+      const rows = filtered.slice(start, start + PAGE_SIZE);
+      tbody.innerHTML = rows.map((r, i) =>
+        `<tr onclick="openDrawer(${start + i})">
+      <td class="date">${r['支払日'] || '—'}</td>
+      <td>${r['局名'] || '—'}</td>
+      <td>${r['課名'] || '—'}</td>
+      <td><span class="pill pill-kan">${r['款名'] || '—'}</span></td>
+      <td><span class="pill pill-sct">${r['節'] || '—'}</span></td>
+      <td class="trunc">${r['支払内容（件名）'] || '—'}</td>
+      <td class="money">${fmtN(r['支払額（円）'] ?? 0)}</td>
+    </tr>`
+      ).join('');
+
+      const totalPages = Math.ceil(total / PAGE_SIZE);
+      pager.style.display = totalPages <= 1 ? 'none' : 'flex';
+      document.getElementById('pgInfo').textContent = `${(page + 1).toLocaleString()} / ${totalPages.toLocaleString()} ページ（全 ${total.toLocaleString()} 件）`;
+      document.getElementById('pgFirst').disabled = page === 0;
+      document.getElementById('pgPrev').disabled = page === 0;
+      document.getElementById('pgNext').disabled = page >= totalPages - 1;
+      document.getElementById('pgLast').disabled = page >= totalPages - 1;
+    }
+    function changePage(dir) {
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+      if (dir === 'first') page = 0;
+      else if (dir === 'prev') page = Math.max(0, page - 1);
+      else if (dir === 'next') page = Math.min(totalPages - 1, page + 1);
+      else if (dir === 'last') page = totalPages - 1;
+      render();
+      document.querySelector('.tbl-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── OVERVIEW CHARTS ──
+    function renderOverview() {
+      updateSummary();
+      // 局別 Top10
+      const kyMap = {};
+      filtered.forEach(r => { const k = r['局名'] || 'その他'; kyMap[k] = (kyMap[k] || 0) + (r['支払額（円）'] || 0); });
+      drawHBar('chartKyoku', Object.entries(kyMap).sort((a, b) => b[1] - a[1]).slice(0, 10),
+        { color: '#4f46e5', fmt: v => fmtAmt(v) + '円' });
+
+      // 節別 件数
+      const scMap = {};
+      filtered.forEach(r => { const k = r['節'] || 'その他'; scMap[k] = (scMap[k] || 0) + 1; });
+      drawHBar('chartSct', Object.entries(scMap).sort((a, b) => b[1] - a[1]).slice(0, 15),
+        { color: '#0891b2', fmt: v => v.toLocaleString() + '件' });
+
+      // 月別推移
+      const moMap = {};
+      filtered.forEach(r => {
+        const d = r['支払日'] || ''; if (d.length < 7) return;
+        const mo = d.slice(0, 7);
+        moMap[mo] = (moMap[mo] || 0) + (r['支払額（円）'] || 0);
+      });
+      const months = Object.keys(moMap).sort();
+      if (months.length >= 2) drawLineChart('chartMonth', months, months.map(m => moMap[m]));
+    }
+
+    function drawHBar(canvasId, items, opts) {
+      const canvas = document.getElementById(canvasId);
+      const W = canvas.parentElement.clientWidth - 28;
+      if (W <= 0 || !items.length) return;
+      const barH = 22, gap = 5, labelW = 120, valW = 85, pad = 10;
+      const H = items.length * (barH + gap) + pad * 2;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.height = H + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const barW = W - labelW - valW - pad;
+      const maxV = items[0]?.[1] || 1;
+      ctx.clearRect(0, 0, W, H);
+
+      items.forEach(([label, val], i) => {
+        const y = pad + i * (barH + gap);
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = `11px "Hiragino Sans",sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'right';
+        let lbl = label;
+        while (ctx.measureText(lbl).width > labelW - 6 && lbl.length > 1) lbl = lbl.slice(0, -1);
+        if (lbl !== label) lbl += '…';
+        ctx.fillText(lbl, labelW - 4, y + barH / 2);
+        ctx.fillStyle = '#f3f4f6';
+        ctx.beginPath(); ctx.roundRect(labelW, y, barW, barH, 3); ctx.fill();
+        const fw = Math.max(4, (val / maxV) * barW);
+        ctx.fillStyle = opts.color;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath(); ctx.roundRect(labelW, y, fw, barH, 3); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#374151';
+        ctx.font = `bold 11px "Hiragino Sans",sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText(opts.fmt(val), labelW + barW + 6, y + barH / 2);
+      });
+    }
+
+    function drawLineChart(canvasId, labels, values) {
+      const canvas = document.getElementById(canvasId);
+      const W = canvas.parentElement.clientWidth - 28;
+      if (W <= 0) return;
+      const H = 160;
+      canvas.width = W * devicePixelRatio;
+      canvas.height = H * devicePixelRatio;
+      canvas.style.height = H + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const pL = 60, pR = 16, pT = 14, pB = 28;
+      const cW = W - pL - pR, cH = H - pT - pB;
+      const maxV = Math.max(...values) || 1;
+      ctx.clearRect(0, 0, W, H);
+
+      // grid
+      [0, .25, .5, .75, 1].forEach(t => {
+        const y = pT + cH * (1 - t);
+        ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL + cW, y); ctx.stroke();
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = `10px "Hiragino Sans",sans-serif`;
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(fmtAmt(maxV * t), pL - 4, y);
+      });
+
+      const xs = labels.map((_, i) => pL + (i / (labels.length - 1 || 1)) * cW);
+      const ys = values.map(v => pT + cH * (1 - v / maxV));
+
+      // area
+      ctx.beginPath();
+      ctx.moveTo(xs[0], pT + cH);
+      xs.forEach((x, i) => ctx.lineTo(x, ys[i]));
+      ctx.lineTo(xs[xs.length - 1], pT + cH);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, pT, 0, pT + cH);
+      grad.addColorStop(0, 'rgba(79,70,229,.2)'); grad.addColorStop(1, 'rgba(79,70,229,0)');
+      ctx.fillStyle = grad; ctx.fill();
+
+      // line
+      ctx.beginPath(); ctx.moveTo(xs[0], ys[0]);
+      xs.forEach((x, i) => ctx.lineTo(x, ys[i]));
+      ctx.strokeStyle = '#4f46e5'; ctx.lineWidth = 2; ctx.stroke();
+
+      // dots + x labels
+      const step = Math.max(1, Math.ceil(labels.length / 12));
+      labels.forEach((m, i) => {
+        ctx.beginPath(); ctx.arc(xs[i], ys[i], 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#4f46e5'; ctx.fill();
+        if (i % step === 0) {
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = `9px "Hiragino Sans",sans-serif`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+          ctx.fillText(m.slice(2), xs[i], pT + cH + 4);
+        }
+      });
+    }
+
+    // ── DRAWER ──
+    function openDrawer(i) {
+      const r = filtered[i]; if (!r) return;
+      document.getElementById('drwTitle').textContent = r['支払内容（件名）'] || '詳細';
+      const fields = [
+        ['局名', r['局名']], ['部名', r['部名']], ['課名', r['課名']],
+        ['支払日', r['支払日']], ['会計名', r['会計名']],
+        ['款名', r['款名']], ['項名', r['項名']], ['目名', r['目名']],
+        ['節・細節名', r['節・細節名']], ['節', r['節']], ['細節', r['細節']],
+      ];
+      document.getElementById('drwBody').innerHTML = `
+    <div class="drw-money">${fmtN(r['支払額（円）'] ?? 0)} 円</div>
+    ${fields.map(([l, v]) => v ? `<div class="drw-row"><div class="drw-lbl">${l}</div><div class="drw-val">${v}</div></div>` : '').join('')}
+  `;
+      document.getElementById('drawerBg').classList.add('open');
+      document.getElementById('drawer').classList.add('open');
+    }
+    function closeDrawer() {
+      document.getElementById('drawerBg').classList.remove('open');
+      document.getElementById('drawer').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+    // ── TABS ──
+    function switchTab(name) {
+      ['overview', 'list', 'treemap'].forEach(t => {
+        const cap = t[0].toUpperCase() + t.slice(1);
+        document.getElementById('tab' + cap).classList.toggle('active', t === name);
+        document.getElementById('panel' + cap).classList.toggle('active', t === name);
+      });
+      if (name === 'overview') renderOverview();
+      if (name === 'treemap') renderTreemap();
+    }
+
+    // ── TREEMAP ──
+    const PALETTE = [
+      '#4338ca', '#0e7490', '#047857', '#b45309', '#be123c',
+      '#7e22ce', '#0369a1', '#15803d', '#a16207', '#9f1239',
+      '#6d28d9', '#0891b2', '#16a34a', '#ca8a04', '#e11d48',
+    ];
+    let tmRects = [], tmTotal = 0, tmGroupKey = '';
+
+    function squarify(items, x0, y0, w0, h0) {
+      const rects = [];
+      const totalV = items.reduce((s, d) => s + (d._size ?? d.v), 0);
+      const nodes = items.map(d => ({ ...d, a: (d._size ?? d.v) / totalV * w0 * h0 }));
+
+      function worstRatio(row, side) {
+        const s = row.reduce((sum, d) => sum + d.a, 0);
+        const minA = Math.min(...row.map(d => d.a));
+        const maxA = Math.max(...row.map(d => d.a));
+        return Math.max(side * side * maxA / (s * s), s * s / (side * side * minA));
+      }
+      function layoutStrip(row, x, y, w, h, horiz) {
+        const s = row.reduce((sum, d) => sum + d.a, 0);
+        const thick = s / (horiz ? h : w);
+        let pos = horiz ? y : x;
+        row.forEach(d => {
+          const len = d.a / thick;
+          if (horiz) rects.push({ ...d, x, y: pos, w: thick, h: len });
+          else rects.push({ ...d, x: pos, y, w: len, h: thick });
+          pos += len;
+        });
+        return horiz ? { x: x + thick, y, w: w - thick, h } : { x, y: y + thick, w, h: h - thick };
+      }
+      function layout(nodes, x, y, w, h) {
+        if (!nodes.length || w < 1 || h < 1) return;
+        const horiz = w >= h, side = horiz ? h : w;
+        let row = [];
+        for (let i = 0; i < nodes.length; i++) {
+          const c = [...row, nodes[i]];
+          if (!row.length || worstRatio(c, side) <= worstRatio(row, side)) { row = c; }
+          else { const rem = layoutStrip(row, x, y, w, h, horiz); layout(nodes.slice(i), rem.x, rem.y, rem.w, rem.h); return; }
+        }
+        layoutStrip(row, x, y, w, h, horiz);
+      }
+      layout(nodes, x0, y0, w0, h0);
+      return rects;
+    }
+
+    function drawTmLabel(ctx, r) {
+      const pad = 8, cw = r.w, ch = r.h;
+      if (cw < 40 || ch < 24) return;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(r.x, r.y, cw, ch); ctx.clip();
+      const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + ch);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = g; ctx.fillRect(r.x, r.y, cw, ch);
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'bottom';
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3;
+      const maxW = cw - pad * 2, ly = r.y + ch - pad;
+      if (ch > 44) {
+        const amtStr = r.v >= 1e8 ? (r.v / 1e8).toFixed(1) + '億円' : r.v >= 1e4 ? Math.round(r.v / 1e4).toLocaleString() + '万円' : r.v.toLocaleString() + '円';
+        ctx.font = `500 ${Math.min(11, cw / 10 + 6)}px "Hiragino Sans",sans-serif`;
+        ctx.globalAlpha = .9; ctx.fillText(amtStr, r.x + pad, ly); ctx.globalAlpha = 1;
+        const fs = Math.max(11, Math.min(15, cw / 8 + 6));
+        ctx.font = `bold ${fs}px "Hiragino Sans",sans-serif`;
+        let lbl = r.label; while (ctx.measureText(lbl).width > maxW && lbl.length > 1) lbl = lbl.slice(0, -1);
+        if (lbl !== r.label) lbl += '…'; ctx.fillText(lbl, r.x + pad, ly - 16);
+      } else {
+        const fs = Math.max(10, Math.min(13, cw / 8 + 5));
+        ctx.font = `bold ${fs}px "Hiragino Sans",sans-serif`;
+        let lbl = r.label; while (ctx.measureText(lbl).width > maxW && lbl.length > 1) lbl = lbl.slice(0, -1);
+        if (lbl !== r.label) lbl += '…'; ctx.fillText(lbl, r.x + pad, ly);
+      }
+      ctx.restore();
+    }
+
+    function lighten(hex, pct) {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgb(${Math.min(255, (n >> 16) + pct)},${Math.min(255, ((n >> 8) & 0xff) + pct)},${Math.min(255, (n & 0xff) + pct)})`;
+    }
+
+    function renderTreemap() {
+      const canvas = document.getElementById('tmCanvas');
+      const scope = document.getElementById('tmScope').value;
+      tmGroupKey = document.getElementById('tmGroup').value;
+      const sizeBy = document.getElementById('tmSize').value;
+      const data = scope === 'filtered' ? filtered : all;
+      if (!data.length) return;
+
+      const W = canvas.parentElement.clientWidth - 2;
+      const H = canvas.parentElement.clientHeight || (window.innerHeight - 240);
+      canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+
+      const map = {};
+      data.forEach(r => {
+        const k = r[tmGroupKey] || 'その他';
+        if (!map[k]) map[k] = { label: k, v: 0, count: 0 };
+        map[k].v += (r['支払額（円）'] || 0); map[k].count++;
+      });
+      const items = Object.values(map)
+        .filter(d => (sizeBy === 'count' ? d.count : d.v) > 0)
+        .sort((a, b) => sizeBy === 'count' ? b.count - a.count : b.v - a.v)
+        .map((d, i) => ({ ...d, _size: sizeBy === 'count' ? d.count : d.v, color: PALETTE[i % PALETTE.length] }));
+      tmTotal = items.reduce((s, d) => s + d._size, 0);
+      tmRects = squarify(items, 0, 0, W, H);
+
+      ctx.fillStyle = '#1e1b4b'; ctx.fillRect(0, 0, W, H);
+      const GAP = 2;
+      tmRects.forEach(r => {
+        const rx = r.x + GAP, ry = r.y + GAP, rw = r.w - GAP * 2, rh = r.h - GAP * 2;
+        if (rw <= 0 || rh <= 0) return;
+        const g = ctx.createLinearGradient(rx, ry, rx, ry + rh);
+        g.addColorStop(0, lighten(r.color, 20)); g.addColorStop(1, r.color);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 4); ctx.fill();
+        drawTmLabel(ctx, { ...r, x: rx, y: ry, w: rw, h: rh });
+      });
+    }
+
+    document.getElementById('tmCanvas').addEventListener('mousemove', ev => {
+      const rect = ev.target.getBoundingClientRect();
+      const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+      const hit = tmRects.find(r => mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h);
+      const tip = document.getElementById('tmTooltip');
+      if (hit) {
+        const sizeBy = document.getElementById('tmSize').value;
+        tip.style.display = 'block';
+        tip.style.left = (ev.clientX + 16) + 'px'; tip.style.top = (ev.clientY - 12) + 'px';
+        tip.innerHTML = `<strong>${hit.label}</strong><br>支払額: <strong>${hit.v.toLocaleString()} 円</strong><br>件数: ${hit.count.toLocaleString()} 件<br>構成比(${sizeBy === 'count' ? '件数' : '金額'}): ${(hit._size / tmTotal * 100).toFixed(1)}%`;
+      } else tip.style.display = 'none';
+    });
+    document.getElementById('tmCanvas').addEventListener('mouseleave',
+      () => { document.getElementById('tmTooltip').style.display = 'none'; });
+    document.getElementById('tmCanvas').addEventListener('click', ev => {
+      const rect = ev.target.getBoundingClientRect();
+      const hit = tmRects.find(r => { const mx = ev.clientX - rect.left, my = ev.clientY - rect.top; return mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h; });
+      if (!hit) return;
+      if (tmGroupKey === '局名') document.getElementById('fKyoku').value = hit.label;
+      else if (tmGroupKey === '款名') document.getElementById('fKan').value = hit.label;
+      else if (tmGroupKey === '節') document.getElementById('fSct').value = hit.label;
+      else document.getElementById('search').value = hit.label;
+      apply(); switchTab('list');
+    });
+
+    // module スコープの関数を HTML の onclick から参照できるよう公開
+    Object.assign(window, {
+      resetFilters, sort, changePage, openDrawer, closeDrawer,
+      switchTab, renderTreemap, loadPaste: () => { },
+    });
+  </script>
+</body>
+
+</html>
